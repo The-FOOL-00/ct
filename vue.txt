@@ -1,0 +1,377 @@
+VUE 3 + SPRING BOOT + MONGODB CRUD TEMPLATE
+============================================
+
+PROJECT STRUCTURE
+-----------------
+lib-frontend/
+  index.html
+  src/
+    main.js
+    App.vue
+    components/
+      BookForm.vue
+      BookList.vue
+      BookItem.vue
+    services/
+      bookService.js
+
+Assumed backend endpoints:
+GET    /api/library/all
+GET    /api/library/{id}
+POST   /api/library/add
+PUT    /api/library/update/{id}
+DELETE /api/library/delete/{id}
+
+Change the URLs in bookService.js to match your Spring Boot controller.
+
+
+1) src/services/bookService.js
+------------------------------
+const API = 'http://localhost:8080/api/library'
+
+async function checkResponse(response, message) {
+  if (!response.ok) {
+    throw new Error(`${message} (HTTP ${response.status})`)
+  }
+
+  // DELETE endpoints sometimes return no response body.
+  if (response.status === 204) return null
+
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
+}
+
+export async function getBooks() {
+  const response = await fetch(`${API}/all`)
+  return checkResponse(response, 'Failed to fetch books')
+}
+
+export async function getBookById(id) {
+  const response = await fetch(`${API}/${id}`)
+  return checkResponse(response, 'Failed to fetch book')
+}
+
+export async function addBook(book) {
+  const response = await fetch(`${API}/add`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(book)
+  })
+  return checkResponse(response, 'Failed to add book')
+}
+
+export async function updateBook(id, book) {
+  const response = await fetch(`${API}/update/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(book)
+  })
+  return checkResponse(response, 'Failed to update book')
+}
+
+export async function deleteBook(id) {
+  const response = await fetch(`${API}/delete/${id}`, {
+    method: 'DELETE'
+  })
+  await checkResponse(response, 'Failed to delete book')
+  return true
+}
+
+
+2) src/components/BookForm.vue
+------------------------------
+<script setup>
+import { ref, watch } from 'vue'
+
+const props = defineProps({
+  book: {
+    type: Object,
+    default: null
+  }
+})
+
+const emit = defineEmits(['save', 'cancel'])
+
+const title = ref('')
+const author = ref('')
+const copiesAvailable = ref(1)
+
+watch(
+  () => props.book,
+  (book) => {
+    title.value = book?.title ?? ''
+    author.value = book?.author ?? ''
+    copiesAvailable.value = book?.copiesAvailable ?? 1
+  },
+  { immediate: true }
+)
+
+function submitForm() {
+  if (!title.value.trim() || !author.value.trim()) {
+    alert('Enter a title and author.')
+    return
+  }
+
+  emit('save', {
+    title: title.value.trim(),
+    author: author.value.trim(),
+    copiesAvailable: Number(copiesAvailable.value)
+  })
+}
+
+function clearForm() {
+  title.value = ''
+  author.value = ''
+  copiesAvailable.value = 1
+  emit('cancel')
+}
+</script>
+
+<template>
+  <form @submit.prevent="submitForm">
+    <h2>{{ book ? 'Edit Book' : 'Add Book' }}</h2>
+
+    <label>
+      Title
+      <input v-model="title" placeholder="Book title" required />
+    </label>
+
+    <label>
+      Author
+      <input v-model="author" placeholder="Author" required />
+    </label>
+
+    <label>
+      Copies available
+      <input
+        v-model.number="copiesAvailable"
+        type="number"
+        min="0"
+        required
+      />
+    </label>
+
+    <button type="submit">{{ book ? 'Update' : 'Add' }}</button>
+    <button type="button" @click="clearForm">Cancel</button>
+  </form>
+</template>
+
+
+3) src/components/BookItem.vue
+------------------------------
+<script setup>
+defineProps({
+  book: {
+    type: Object,
+    required: true
+  }
+})
+
+const emit = defineEmits(['edit', 'delete'])
+</script>
+
+<template>
+  <tr>
+    <td>{{ book.title }}</td>
+    <td>{{ book.author }}</td>
+    <td>{{ book.copiesAvailable }}</td>
+    <td>
+      <button type="button" @click="emit('edit', book)">Edit</button>
+      <button type="button" @click="emit('delete', book.id)">Delete</button>
+    </td>
+  </tr>
+</template>
+
+
+4) src/components/BookList.vue
+------------------------------
+<script setup>
+import BookItem from './BookItem.vue'
+
+defineProps({
+  books: {
+    type: Array,
+    required: true
+  }
+})
+
+const emit = defineEmits(['edit', 'delete'])
+</script>
+
+<template>
+  <section>
+    <h2>Book List</h2>
+
+    <p v-if="books.length === 0">No books found.</p>
+
+    <table v-else border="1" cellpadding="8">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Author</th>
+          <th>Copies</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <BookItem
+          v-for="book in books"
+          :key="book.id"
+          :book="book"
+          @edit="emit('edit', $event)"
+          @delete="emit('delete', $event)"
+        />
+      </tbody>
+    </table>
+  </section>
+</template>
+
+
+5) src/App.vue
+---------------
+<script setup>
+import { ref, onMounted } from 'vue'
+import BookForm from './components/BookForm.vue'
+import BookList from './components/BookList.vue'
+
+import {
+  getBooks,
+  addBook,
+  updateBook,
+  deleteBook
+} from './services/bookService.js'
+
+const books = ref([])
+const selectedBook = ref(null)
+const loading = ref(false)
+const error = ref('')
+
+async function loadBooks() {
+  loading.value = true
+  error.value = ''
+
+  try {
+    const result = await getBooks()
+    books.value = Array.isArray(result) ? result : []
+  } catch (e) {
+    error.value = e.message || 'Could not load books.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveBook(bookData) {
+  error.value = ''
+
+  try {
+    if (selectedBook.value) {
+      await updateBook(selectedBook.value.id, bookData)
+    } else {
+      await addBook(bookData)
+    }
+
+    selectedBook.value = null
+    await loadBooks()
+  } catch (e) {
+    error.value = e.message || 'Could not save book.'
+  }
+}
+
+function editBook(book) {
+  selectedBook.value = { ...book }
+}
+
+function cancelEdit() {
+  selectedBook.value = null
+}
+
+async function removeBook(id) {
+  if (!confirm('Delete this book?')) return
+
+  error.value = ''
+
+  try {
+    await deleteBook(id)
+    if (selectedBook.value?.id === id) selectedBook.value = null
+    await loadBooks()
+  } catch (e) {
+    error.value = e.message || 'Could not delete book.'
+  }
+}
+
+onMounted(loadBooks)
+</script>
+
+<template>
+  <main>
+    <h1>Library Management</h1>
+
+    <p v-if="loading">Loading books...</p>
+    <p v-if="error" role="alert" style="color: red">{{ error }}</p>
+
+    <BookForm
+      :book="selectedBook"
+      @save="saveBook"
+      @cancel="cancelEdit"
+    />
+
+    <hr />
+
+    <BookList
+      :books="books"
+      @edit="editBook"
+      @delete="removeBook"
+    />
+
+    <button type="button" @click="loadBooks">Refresh</button>
+  </main>
+</template>
+
+
+6) src/main.js
+---------------
+import { createApp } from 'vue'
+import App from './App.vue'
+
+createApp(App).mount('#app')
+
+
+7) index.html (Vite project root)
+---------------------------------
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Library Management</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+
+
+8) RUN THE PROJECT
+------------------
+1. Start MongoDB.
+2. Run the Spring Boot backend on port 8080.
+3. Open a terminal in lib-frontend.
+4. Run: npm install
+5. Run: npm run dev
+6. Open the Vite URL shown in the terminal (usually http://localhost:5173).
+
+If you get a CORS error, allow http://localhost:5173 in Spring Boot. For example,
+add @CrossOrigin(origins = "http://localhost:5173") to the controller, or
+configure CORS in Spring Security if security is enabled.
+
+IMPORTANT NOTES
+---------------
+- These snippets are separate files, not one giant Vue component. Keep each
+  section in the path shown above.
+- Spring Boot endpoint paths must match bookService.js.
+- This example assumes the backend JSON uses the field "id". If your backend
+  returns "_id" or another identifier field, update book.id and book.id usages.
+- The POST/PUT backend endpoints should accept JSON and return a successful
+  HTTP status. DELETE may return 200 or 204.
