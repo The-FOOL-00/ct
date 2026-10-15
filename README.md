@@ -34,9 +34,11 @@ This repository contains all the code, templates, and backend/frontend component
 | **`src/`** | Vue 3 + Vite | Modular frontend client for Product Manager: `App.vue` (state & API communication), `ProductForm.vue` (input form for Add/Update), `ProductList.vue` (table/cards with Edit & Delete actions), and `main.js`. |
 | **`vue1/App.vue`** | Vue 3 SFC | Compact 2-component version of the Product Manager frontend designed for rapid writing in exams. |
 | **`combined_app.vue`** | Vue 3 SFC | Single-file monolithic Vue 3 app for Person Management. Demonstrates full CRUD plus "Find by MongoDB ID" in one self-contained component without needing child components. |
+| **`studentmanager/`** | Spring Boot + MongoDB + Vue 3 | Multi-entity management system (Students and Courses). Contains models (`Student.java`, `Courses.java`), repositories (`StudentRepository.java`, `CourseRepository.java`), services (`StudentService.java`, `CourseService.java`, `ManagementService.java`), controllers (`ManagementController.java`, `ManagementController1.java`), and a complete Vue 3 frontend (`app.vue`) managing both collections simultaneously. |
 | **`servlet.txt`** | Reference Cheatsheet | Quick-reference notes for Tomcat paths, compilation command (`javac -cp ...`), MySQL table creation SQL, and an alternative `EmployeeServlet` updating employee experience. |
 | **`vue.txt`** | Reference Cheatsheet | Complete code template for a Vue 3 + Spring Boot + MongoDB Library Management System (`BookForm.vue`, `BookList.vue`, `BookItem.vue`, `bookService.js`). |
 | **`vue2.txt`** | Reference Cheatsheet | Alternative Product Manager reference containing both modular and monolithic Vue 3 templates with inline CSS. |
+| **`whack_a_mole.html`** | Vanilla HTML + CSS + JS | Complete, runnable Whack-a-Mole game demonstrating DOM events, random timer intervals (`setTimeout`/`setInterval`), and anti-cheat validation (`e.isTrusted`). |
 
 ---
 
