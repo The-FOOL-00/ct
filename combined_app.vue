@@ -1,264 +1,205 @@
-
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const API = 'http://localhost:8080/api/products'
+const API = 'http://localhost:8080/api/persons'
 
-const products = ref([])
+const persons = ref([])
+const name = ref('')
+const selectedId = ref(null)
+const searchId = ref('')
+const foundPerson = ref(null)
 const message = ref('')
+const error = ref('')
 
-function emptyForm() {
-  return {
-    id: null,
-    name: '',
-    category: 'Electronics',
-    price: '',
-    stock: ''
+// READ ALL: Get all persons
+async function getPersons() {
+  try {
+    const res = await fetch(API)
+    if (!res.ok) throw new Error()
+
+    persons.value = await res.json()
+    error.value = ''
+  } catch {
+    error.value = 'Failed to fetch persons!'
   }
 }
 
-const form = ref(emptyForm())
+// READ ONE: Get a person by MongoDB ID
+async function getPersonById() {
+  try {
+    const res = await fetch(`${API}/${searchId.value}`)
+    if (!res.ok) throw new Error()
 
-// READ
-async function getProducts() {
-  const res = await fetch(API)
-
-  if (!res.ok) throw new Error()
-
-  products.value = await res.json()
+    foundPerson.value = await res.json()
+    error.value = ''
+  } catch {
+    foundPerson.value = null
+    error.value = 'Person not found!'
+  }
 }
 
-// CREATE and UPDATE
-async function saveProduct() {
-  const editing = form.value.id !== null
-
-  const product = {
-    name: form.value.name,
-    category: form.value.category,
-    price: Number(form.value.price),
-    stock: Number(form.value.stock)
+// CREATE: Add a new person
+async function createPerson() {
+  if (!name.value.trim()) {
+    error.value = 'Enter a name!'
+    return
   }
 
   try {
-    const res = await fetch(
-      editing ? `${API}/${form.value.id}` : API,
-      {
-        method: editing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product)
-      }
-    )
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.value.trim() })
+    })
 
     if (!res.ok) throw new Error()
 
-    await getProducts()
-    form.value = emptyForm()
-    message.value = editing ? 'Product updated!' : 'Product added!'
+    message.value = 'Person added!'
+    resetForm()
+    await getPersons()
   } catch {
-    message.value = 'Operation failed!'
+    error.value = 'Failed to add person!'
   }
 }
 
-// EDIT
-function editProduct(product) {
-  form.value = { ...product }
-}
-
-// DELETE
-async function deleteProduct(product) {
-  if (!confirm('Delete ' + product.name + '?')) return
+// UPDATE: Update the selected person
+async function updatePerson() {
+  if (!name.value.trim()) {
+    error.value = 'Enter a name!'
+    return
+  }
 
   try {
-    const res = await fetch(`${API}/${product.id}`, {
+    const res = await fetch(`${API}/${selectedId.value}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.value.trim() })
+    })
+
+    if (!res.ok) throw new Error()
+
+    message.value = 'Person updated!'
+    resetForm()
+    await getPersons()
+  } catch {
+    error.value = 'Failed to update person!'
+  }
+}
+
+// EDIT: Load the selected person's name into the input
+function editPerson(person) {
+  name.value = person.name
+  selectedId.value = person.id
+  message.value = 'Editing person...'
+  error.value = ''
+}
+
+// DELETE: Delete a person by ID
+async function deletePerson(person) {
+  if (!confirm('Delete ' + person.name + '?')) return
+
+  try {
+    const res = await fetch(`${API}/${person.id}`, {
       method: 'DELETE'
     })
 
     if (!res.ok) throw new Error()
 
-    await getProducts()
-    message.value = 'Product deleted!'
+    message.value = 'Person deleted!'
+    error.value = ''
+
+    await getPersons()
+
+    if (selectedId.value === person.id) {
+      resetForm()
+    }
   } catch {
-    message.value = 'Delete failed!'
+    error.value = 'Failed to delete person!'
   }
 }
 
-// RESET FORM
+// CLEAR: Reset the form
 function resetForm() {
-  form.value = emptyForm()
+  name.value = ''
+  selectedId.value = null
 }
 
-onMounted(() => {
-  getProducts().catch(() => {
-    message.value = 'Cannot connect to Spring Boot!'
-  })
-})
+// Run GET ALL when the page opens
+onMounted(getPersons)
 </script>
 
 <template>
   <header>
-    <h1>Product Manager</h1>
-    <p>Simple Inventory Management</p>
+    <h1>Person Manager</h1>
+    <p>Simple Person Management System</p>
   </header>
 
   <main>
-    <section class="panel">
-      <h2>{{ form.id ? 'Edit Product' : 'Add Product' }}</h2>
+    <p v-if="message">{{ message }}</p>
+    <p v-if="error">{{ error }}</p>
 
-      <form @submit.prevent="saveProduct">
-        <label>Product Name</label>
-        <input v-model="form.name" required />
+    <h2>{{ selectedId === null ? 'Add Person' : 'Update Person' }}</h2>
 
-        <label>Category</label>
-        <select v-model="form.category">
-          <option>Electronics</option>
-          <option>Accessories</option>
-          <option>Stationery</option>
-          <option>Other</option>
-        </select>
+    <form @submit.prevent="selectedId === null ? createPerson() : updatePerson()">
+      <label for="name">Name:</label>
+      <input
+        id="name"
+        v-model="name"
+        placeholder="Enter person's name"
+        required
+      />
 
-        <label>Price</label>
-        <input type="number" min="0" step="0.01"
-               v-model="form.price" required />
+      <button v-if="selectedId === null" type="submit">
+        Add Person
+      </button>
 
-        <label>Stock</label>
-        <input type="number" min="0" step="1"
-               v-model="form.stock" required />
+      <button v-else type="submit">
+        Update Person
+      </button>
 
-        <button type="submit">
-          {{ form.id ? 'Update Product' : 'Add Product' }}
-        </button>
+      <button type="button" @click="resetForm">
+        Clear
+      </button>
+    </form>
 
-        <button type="button" class="secondary" @click="resetForm">
-          Clear
-        </button>
-      </form>
-    </section>
+    <hr />
 
-    <section class="panel">
-      <h2>Product List ({{ products.length }})</h2>
+    <h2>Person List ({{ persons.length }})</h2>
 
-      <p v-if="products.length === 0">No products found.</p>
+    <p v-if="persons.length === 0">No persons found.</p>
 
-      <div v-for="p in products" :key="p.id" class="product">
-        <div>
-          <h3>{{ p.name }}</h3>
-          <p>{{ p.category }} | Stock: {{ p.stock }}</p>
-          <strong>₹{{ p.price }}</strong>
-        </div>
+    <ul>
+      <li v-for="person in persons" :key="person.id">
+        <strong>{{ person.name }}</strong>
+        — ID: {{ person.id }}
 
-        <div>
-          <button class="edit" @click="editProduct(p)">Edit</button>
-          <button class="delete" @click="deleteProduct(p)">Delete</button>
-        </div>
-      </div>
-    </section>
+        <button @click="editPerson(person)">Edit</button>
+        <button @click="deletePerson(person)">Delete</button>
+      </li>
+    </ul>
 
-    <p class="message">{{ message }}</p>
+    <hr />
+
+    <h2>Find Person by ID</h2>
+
+    <form @submit.prevent="getPersonById">
+      <label for="searchId">MongoDB ID:</label>
+      <input
+        id="searchId"
+        v-model="searchId"
+        placeholder="Enter MongoDB ID"
+        required
+      />
+
+      <button type="submit">Find Person</button>
+    </form>
+
+    <p v-if="foundPerson">
+      Name: <strong>{{ foundPerson.name }}</strong>
+    </p>
+
+    <p v-if="foundPerson">
+      ID: {{ foundPerson.id }}
+    </p>
   </main>
 </template>
-
-<style>
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f2f3fa;
-  color: #292b45;
-}
-
-header {
-  text-align: center;
-  padding: 25px;
-  color: white;
-  background: linear-gradient(120deg, #292b50, #6b5bd2);
-}
-
-header h1 {
-  margin-bottom: 8px;
-}
-
-main {
-  max-width: 850px;
-  margin: 30px auto;
-  padding: 0 18px;
-}
-
-.panel {
-  background: white;
-  padding: 22px;
-  margin-bottom: 22px;
-  border-radius: 14px;
-  box-shadow: 0 4px 15px #22224412;
-}
-
-label {
-  display: block;
-  margin: 12px 0 6px;
-  font-weight: bold;
-  font-size: 13px;
-}
-
-input, select {
-  width: 100%;
-  padding: 11px;
-  border: 1px solid #d5d7e5;
-  border-radius: 7px;
-}
-
-button {
-  padding: 9px 13px;
-  margin: 8px 4px 0 0;
-  border: none;
-  border-radius: 7px;
-  background: #6254d6;
-  color: white;
-  cursor: pointer;
-}
-
-button:hover {
-  opacity: 0.85;
-}
-
-.secondary, .edit {
-  background: #eae7ff;
-  color: #5145b5;
-}
-
-.delete {
-  background: #ffedf0;
-  color: #bb304a;
-}
-
-.product {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid #eee;
-}
-
-.product h3 {
-  margin-bottom: 5px;
-}
-
-.product p {
-  color: #777;
-  font-size: 13px;
-}
-
-.message {
-  text-align: center;
-  color: #5145b5;
-}
-
-@media (max-width: 600px) {
-  .product {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-</style>

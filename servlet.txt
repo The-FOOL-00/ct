@@ -1,0 +1,122 @@
+C:\apache-tomcat-9.0.123\webapps\
+└── HelloServlet\
+    ├── index.html
+    └── WEB-INF\
+        ├── web.xml
+        └── classes\
+            └── HelloServlet.java
+
+
+
+
+
+javac --release 17 -cp "C:\apache-tomcat-9.0.123\lib\servlet-api.jar" HelloServlet.java
+
+mysql -u root -p
+------------------------------------
+CREATE DATABASE IF NOT EXISTS company;
+
+USE company;
+
+CREATE TABLE IF NOT EXISTS Employees (
+    id INT PRIMARY KEY,
+    age INT,
+    first_name VARCHAR(20),
+    last_name VARCHAR(20)
+);
+
+INSERT INTO Employees (id, age, first_name, last_name)
+VALUES
+    (101, 20, 'Zara', 'Ali'),
+    (102, 21, 'Rahul', 'Kumar');
+
+SELECT * FROM Employees;
+
+-------------------------------------
+C:\apache-tomcat-9.0.123\webapps\
+└── DatabaseServlet\
+    ├── index.html
+    └── WEB-INF\
+        ├── web.xml
+        ├── classes\
+        │   └── DatabaseServlet.java
+        └── lib\
+            └── mariadb-java-client-3.5.10.jar
+
+
+
+------------------------------
+import java.io.*;
+import java.sql.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+public class EmployeeServlet extends HttpServlet {
+
+    public void doGet(HttpServletRequest request,
+                      HttpServletResponse response)
+            throws ServletException, IOException {
+
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+
+        try {
+
+            // 1. Load JDBC driver
+            Class.forName("com.mysql.jdbc.Driver");
+
+            // 2. Establish database connection
+            Connection con =
+                DriverManager.getConnection(
+                    "jdbc:mysql://localhost:3306/TEST",
+                    "root",
+                    "password"
+                );
+
+            // 3. Create statement
+            Statement stmt = con.createStatement();
+
+            // 4. Retrieve employees whose age is > 45
+            String selectSQL =
+                "SELECT id, age, first, last, experience " +
+                "FROM Employees WHERE age > 45";
+
+            ResultSet rs = stmt.executeQuery(selectSQL);
+
+            out.println("<html><body>");
+            out.println("<h2>Updated Employee Details</h2>");
+
+            // 5. Process each employee
+            while (rs.next()) {
+
+                int id = rs.getInt("id");
+                int age = rs.getInt("age");
+                String first = rs.getString("first");
+                String last = rs.getString("last");
+
+                // 6. Update experience to 10 years
+                String updateSQL =
+                    "UPDATE Employees SET experience = 10 " +
+                    "WHERE id = " + id;
+
+                stmt.executeUpdate(updateSQL);
+
+                // 7. Display updated information
+                out.println("ID: " + id + "<br>");
+                out.println("Name: " + first + " " + last + "<br>");
+                out.println("Age: " + age + "<br>");
+                out.println("Job Experience: 10 years<br><br>");
+            }
+
+            out.println("</body></html>");
+
+            // 8. Close resources
+            rs.close();
+            stmt.close();
+            con.close();
+
+        } catch (Exception e) {
+            out.println("Error: " + e.getMessage());
+        }
+    }
+}
