@@ -1,0 +1,15 @@
+
+
+<web-app>
+
+    <servlet>
+        <servlet-name>DatabaseServlet</servlet-name>
+        <servlet-class>DatabaseServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>DatabaseServlet</servlet-name>
+        <url-pattern>/display</url-pattern>
+    </servlet-mapping>
+
+</web-app>
