@@ -48,6 +48,7 @@ public class ManagementService {
         student.setName(updated.getName());
         student.setDepartment(updated.getDepartment());
         student.setYear(updated.getYear());
+        student.setCourseIds(updated.getCourseIds());
 
         return studentRepo.save(student);
     }

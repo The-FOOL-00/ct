@@ -31,10 +31,11 @@ public class StudentService {
         Student student = repository.findById(id).orElse(null);
 
         if (student == null) return null;
-
+        
         student.setName(updated.getName());
         student.setDepartment(updated.getDepartment());
         student.setYear(updated.getYear());
+        student.setCourseIds(updated.getCourseIds());
 
         return repository.save(student);
     }
